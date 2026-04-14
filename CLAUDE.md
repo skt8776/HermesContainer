@@ -223,12 +223,19 @@ Then start over from `run.bat login`.
   - The Dockerfile sets `CLAUDE_CONFIG_DIR=/home/hermes/.claude` so Claude keeps its main config (`.claude.json`) and credentials in the same volume-mounted directory. Without this env var, Claude splits state between `~/.claude/` (volume) and `~/.claude.json` (home root, ephemeral); the missing main config makes `claude` interactive re-prompt for OAuth on every container restart even though `claude auth status` reports logged-in. Anthropic's reference devcontainer uses the same env var. See [issue #1736](https://github.com/anthropics/claude-code/issues/1736).
 - **Never** commit API keys, OAuth tokens, or `.env` files.
 
-### Hermes → Claude Code Delegation
+### Hermes → Claude Code / Codex Delegation
 - Hermes is the orchestrator (Discord/Slack gateways, multi-step workflows, conversation state).
-- For code-editing work, Hermes invokes Claude Code via the skill at `~/.hermes/skills/claude_code/skill.py`.
-- The skill calls `claude -p "<task>" --cwd <path>` as a subprocess and returns stdout/stderr/exit.
-- Claude Code uses its own permission model (`acceptEdits`, `plan`, `bypassPermissions`) and its own tool set.
-- Skill template lives at `/opt/hermes-skills/claude_code/` in the image; copied to the user's persistent home via `./run.sh install-claude-skill`.
+- For code-editing work, Hermes invokes a coding agent via a skill:
+  - `~/.hermes/skills/claude_code/skill.py` → `claude -p "<task>"` (Claude Pro/Max)
+  - `~/.hermes/skills/codex/skill.py` → `codex exec --full-auto -C <cwd> "<task>"` (ChatGPT Pro/Plus)
+- Each skill returns `{returncode, stdout, stderr, timed_out}` so Hermes can chain results.
+- Claude Code uses its own permission model (`acceptEdits`, `plan`, `bypassPermissions`) and tool set (Read, Edit, Bash, Grep, Glob).
+- Codex uses sandbox modes (`workspace-write` via `--full-auto`) and writes only inside `cwd` + any `add-dir` paths.
+- Skill templates live at `/opt/hermes-skills/{claude_code,codex}/` in the image; copy to the user's Hermes home via:
+  - `./run.sh install-claude-skill` — Claude Code only
+  - `./run.sh install-codex-skill` — Codex only
+  - `./run.sh install-skills` — both
+- Hermes can choose per task: long careful refactors via Claude, tight command-execution loops via Codex, or split a workflow across both.
 
 ---
 

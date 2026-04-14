@@ -8,6 +8,8 @@ REM   run.bat login                  - Codex OAuth (ChatGPT Pro)
 REM   run.bat claude-login           - Claude Code OAuth (always re-prompts)
 REM   run.bat claude-status          - Check Claude Code auth (no re-prompt)
 REM   run.bat install-claude-skill   - Install Claude Code skill into Hermes
+REM   run.bat install-codex-skill    - Install Codex skill into Hermes
+REM   run.bat install-skills         - Install both delegation skills
 REM   run.bat setup                  - Hermes setup wizard
 REM   run.bat gateway-setup          - Configure Discord/Slack gateway
 REM   run.bat up                     - Start long-running container
@@ -45,6 +47,8 @@ if /i "%~1"=="login"                goto :login
 if /i "%~1"=="claude-login"         goto :claude_login
 if /i "%~1"=="claude-status"        goto :claude_status
 if /i "%~1"=="install-claude-skill" goto :install_claude_skill
+if /i "%~1"=="install-codex-skill"  goto :install_codex_skill
+if /i "%~1"=="install-skills"       goto :install_skills
 if /i "%~1"=="setup"                goto :setup
 if /i "%~1"=="gateway-setup" goto :gateway_setup
 if /i "%~1"=="up"            goto :up
@@ -116,6 +120,14 @@ goto :eof
 
 :install_claude_skill
 docker run --rm %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% bash -c "mkdir -p ~/.hermes/skills && cp -r /opt/hermes-skills/claude_code ~/.hermes/skills/ && echo Installed Claude Code skill to ~/.hermes/skills/claude_code/"
+goto :eof
+
+:install_codex_skill
+docker run --rm %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% bash -c "mkdir -p ~/.hermes/skills && cp -r /opt/hermes-skills/codex ~/.hermes/skills/ && echo Installed Codex skill to ~/.hermes/skills/codex/"
+goto :eof
+
+:install_skills
+docker run --rm %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% bash -c "mkdir -p ~/.hermes/skills && cp -r /opt/hermes-skills/claude_code /opt/hermes-skills/codex ~/.hermes/skills/ && echo Installed Claude Code + Codex skills"
 goto :eof
 
 :setup
@@ -208,6 +220,8 @@ echo   login                 Codex OAuth login (ChatGPT Pro)
 echo   claude-login          Claude Code OAuth login (always re-prompts)
 echo   claude-status         Check Claude Code auth status (no re-prompt)
 echo   install-claude-skill  Copy Claude Code skill into Hermes skills dir
+echo   install-codex-skill   Copy Codex skill into Hermes skills dir
+echo   install-skills        Install both delegation skills (Claude + Codex)
 echo   setup                 Hermes setup wizard
 echo   gateway-setup         Configure Discord/Slack gateway
 echo.

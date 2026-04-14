@@ -13,6 +13,8 @@
 #   ./run.sh claude-login          - Claude Code OAuth (always re-prompts)
 #   ./run.sh claude-status         - Check Claude Code auth (no re-prompt)
 #   ./run.sh install-claude-skill  - Install Claude Code skill into Hermes
+#   ./run.sh install-codex-skill   - Install Codex skill into Hermes
+#   ./run.sh install-skills        - Install both delegation skills
 #   ./run.sh setup                 - Hermes setup wizard
 #   ./run.sh gateway-setup         - Configure Discord/Slack gateway
 #   ./run.sh up                    - Start long-running container (detached)
@@ -133,6 +135,19 @@ EOF
             "$IMAGE_NAME" \
             bash -c 'mkdir -p ~/.hermes/skills && cp -r /opt/hermes-skills/claude_code ~/.hermes/skills/ && echo "Installed Claude Code skill to ~/.hermes/skills/claude_code/"'
         ;;
+    install-codex-skill)
+        docker run --rm \
+            "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
+            "$IMAGE_NAME" \
+            bash -c 'mkdir -p ~/.hermes/skills && cp -r /opt/hermes-skills/codex ~/.hermes/skills/ && echo "Installed Codex skill to ~/.hermes/skills/codex/"'
+        ;;
+    install-skills)
+        # Install both Claude Code and Codex skills in one shot.
+        docker run --rm \
+            "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
+            "$IMAGE_NAME" \
+            bash -c 'mkdir -p ~/.hermes/skills && cp -r /opt/hermes-skills/claude_code /opt/hermes-skills/codex ~/.hermes/skills/ && echo "Installed Claude Code + Codex skills"'
+        ;;
     setup)
         docker run --rm -it \
             "${HARDENING[@]}" "${VOLUMES[@]}" "${PORTS[@]}" "${ENV[@]}" \
@@ -220,6 +235,8 @@ Setup:
   claude-login          Claude Code OAuth login (always re-prompts)
   claude-status         Check Claude Code auth status (no re-prompt)
   install-claude-skill  Copy Claude Code skill into Hermes skills dir
+  install-codex-skill   Copy Codex skill into Hermes skills dir
+  install-skills        Install both delegation skills (Claude + Codex)
   setup                 Hermes setup wizard
   gateway-setup         Configure Discord/Slack gateway
 

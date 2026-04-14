@@ -33,9 +33,13 @@ Running an autonomous agent on your host machine means trusting it with your ent
 ```
 
 **Role split:** Hermes is the orchestrator (Discord/Slack gateways, workflows,
-long-running tasks). Claude Code is the code-editing executor, called by
-Hermes on demand via the `claude_code` skill. This lets you use both
-subscriptions for what each does best.
+long-running tasks). Both **Claude Code** and **Codex** are available as
+code-editing executors that Hermes can delegate to via skills:
+- `claude_code` skill → invokes `claude -p` (Claude Pro/Max)
+- `codex` skill → invokes `codex exec --full-auto` (ChatGPT Pro/Plus)
+
+Hermes can pick per task — long, careful refactors via Claude; tight
+command-execution loops via Codex; or split a workflow across both.
 
 The firewall allowlist is adapted from [Anthropic's Claude Code devcontainer](https://github.com/anthropics/claude-code/tree/main/.devcontainer).
 
@@ -81,12 +85,13 @@ The firewall allowlist is adapted from [Anthropic's Claude Code devcontainer](ht
 # Tokens are stored in a separate `hermes-claude-auth` volume.
 ```
 
-### 5. Install the Claude Code delegation skill
+### 5. Install the delegation skills
 
 ```bash
-./run.sh install-claude-skill
-# Copies the skill template from /opt/hermes-skills/claude_code/
-# into your persistent Hermes home at ~/.hermes/skills/claude_code/.
+./run.sh install-skills
+# Copies BOTH skill templates from /opt/hermes-skills/
+# into ~/.hermes/skills/{claude_code,codex}/.
+# Equivalent to: install-claude-skill + install-codex-skill
 ```
 
 ### 6. Configure Hermes (interactive wizard)
@@ -127,6 +132,8 @@ The firewall allowlist is adapted from [Anthropic's Claude Code devcontainer](ht
 | `login` | Codex OAuth login — ChatGPT Pro (one-time per host) |
 | `claude-login` | Claude Code OAuth login — Claude Pro/Max (one-time per host) |
 | `install-claude-skill` | Copy the Claude Code delegation skill into Hermes |
+| `install-codex-skill` | Copy the Codex delegation skill into Hermes |
+| `install-skills` | Install both delegation skills in one shot |
 | `setup` | Hermes setup wizard |
 | `gateway-setup` | Configure Discord / Slack / WhatsApp gateway |
 | `up` | Start long-running container (OAuth proxy + gateway) |
