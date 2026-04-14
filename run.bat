@@ -6,7 +6,6 @@ REM   run.bat build                  - Build image
 REM   run.bat init ^<name^>            - Create or select project folder
 REM   run.bat login                  - Codex OAuth (ChatGPT Pro)
 REM   run.bat claude-login           - Claude Code OAuth (Claude Pro/Max)
-REM   run.bat claude-token           - Long-lived token flow (alt to claude-login)
 REM   run.bat install-claude-skill   - Install Claude Code skill into Hermes
 REM   run.bat setup                  - Hermes setup wizard
 REM   run.bat gateway-setup          - Configure Discord/Slack gateway
@@ -43,7 +42,6 @@ if /i "%~1"=="build"                goto :build
 if /i "%~1"=="init"                 goto :init
 if /i "%~1"=="login"                goto :login
 if /i "%~1"=="claude-login"         goto :claude_login
-if /i "%~1"=="claude-token"         goto :claude_token
 if /i "%~1"=="install-claude-skill" goto :install_claude_skill
 if /i "%~1"=="setup"                goto :setup
 if /i "%~1"=="gateway-setup" goto :gateway_setup
@@ -104,12 +102,6 @@ goto :eof
 
 :claude_login
 docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% claude login
-goto :eof
-
-:claude_token
-REM Long-lived auth token flow (requires Claude subscription).
-REM Try this if `claude-login` paste prompt is problematic.
-docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% claude setup-token
 goto :eof
 
 :install_claude_skill
@@ -204,7 +196,6 @@ echo Setup:
 echo   build                 Build the Docker image
 echo   login                 Codex OAuth login (ChatGPT Pro)
 echo   claude-login          Claude Code OAuth login (Claude Pro/Max)
-echo   claude-token          Long-lived token flow (alternative to claude-login)
 echo   install-claude-skill  Copy Claude Code skill into Hermes skills dir
 echo   setup                 Hermes setup wizard
 echo   gateway-setup         Configure Discord/Slack gateway

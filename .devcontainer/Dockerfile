@@ -13,31 +13,53 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# ─── System dependencies (Hermes requirements + firewall + deploy tools) ──
+# ─── System dependencies (Hermes + firewall + deploy + everyday tools) ───
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Core
     ca-certificates \
     curl \
+    wget \
     git \
     bash \
     sudo \
+    # Build chain
     build-essential \
     pkg-config \
     libssl-dev \
     libffi-dev \
+    # Python
     python3.11 \
     python3.11-venv \
     python3-pip \
+    # Hermes runtime requirements
     ripgrep \
     ffmpeg \
+    # Network / deployment
     openssh-client \
     rsync \
     gnupg \
     jq \
+    # Firewall
     iptables \
     ipset \
     dnsutils \
     aggregate \
     iproute2 \
+    # Everyday tools
+    vim \
+    nano \
+    less \
+    htop \
+    tree \
+    file \
+    tmux \
+    procps \
+    psmisc \
+    net-tools \
+    bash-completion \
+    man-db \
+    unzip \
+    zip \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.11 /usr/local/bin/python \
     && ln -sf /usr/bin/python3.11 /usr/local/bin/python3

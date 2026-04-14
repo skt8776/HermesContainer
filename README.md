@@ -267,15 +267,24 @@ To stage from inside the container the other way:
 echo "your text" | cbset    # writes to /workspace/.clipboard
 ```
 
-**At the `claude login` "paste code here" prompt (worst case)** — this specific prompt does not accept paste reliably from any terminal we've tested, and the clipboard bridge can't help because Claude is blocking on stdin. Try, in order:
+**At the `claude login` "paste code here" prompt (the hard one)** — this prompt does not accept paste from PowerShell/CMD on Windows. The cause is **not** the container or Claude Code; it's the Windows ConPTY ↔ Linux PTY bridge that Docker Desktop sits on. Bracketed paste escape sequences (which Claude relies on to detect a paste event) get stripped somewhere in `Windows Terminal → docker.exe → Docker Desktop VM → container`. Changing the container's base OS does not help.
 
-1. **Type the OAuth code manually** — codes are ≤30 chars; takes about 30 seconds.
-2. **`Shift+Insert`** or **middle-mouse-click** in Windows Terminal sometimes works where `Ctrl+V` does not.
-3. **Try the long-lived token flow** instead of `login`:
-   ```powershell
-   .\run.bat claude-token       # invokes `claude setup-token`
+Workarounds, in order of effectiveness:
+
+1. **Run from WSL2 instead of PowerShell** *(the actual fix)*. From inside an Ubuntu/Debian WSL2 shell:
+   ```bash
+   cd /mnt/c/Users/skt87/workspace/dev-container
+   ./run.sh claude-login
    ```
+   The TTY chain becomes Linux end-to-end, bracketed paste survives, and `Ctrl+V` / right-click / `Shift+Insert` all work in the OAuth prompt.
+
+2. **Type the OAuth code manually.** Codes are ≤30 characters — about 30 seconds of typing.
+
+3. **`Shift+Insert`** or **middle-mouse-click** in Windows Terminal sometimes work where `Ctrl+V` does not.
+
 4. As a last resort, drop into `.\run.bat start` and run `claude /login` directly to test paste shortcuts in that exact session.
+
+The clipboard bridge (`cb`) cannot help here because Claude is blocking on stdin — there's no way to feed text into the running process from outside.
 
 ## License and Credits
 

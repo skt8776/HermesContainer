@@ -174,15 +174,24 @@ Then start over from `run.bat login`.
    - The other direction: `echo "..." | cbset` writes to `/workspace/.clipboard`.
    - The `.clipboard` file is gitignored.
 
-3. **OAuth code prompt during `claude login` (the worst case)** — the "paste code here if prompted" prompt does not accept paste reliably from any terminal we've tested. The bracketed-paste mode that helps elsewhere does not bypass this prompt.
-   **Workarounds, in order of preference:**
-   1. **Type the code manually.** OAuth codes are short (≤30 chars). Read from the browser, type into the terminal. ~30 seconds.
-   2. **Try `Shift+Insert` or middle-mouse-click** in Windows Terminal — a few users report these work where `Ctrl+V` does not.
-   3. **Use `./run.sh claude-token`** instead of `./run.sh claude-login`. This invokes `claude setup-token` (long-lived subscription token flow) — same paste prompt, but worth trying if your environment treats it differently.
-   4. **Last resort:** drop into `./run.sh start`, run `claude /login` manually, and try the various paste shortcuts in that exact session.
-   The clipboard bridge (`cb`) **does not help here** — Claude is blocking on stdin, so piping text in via another command can't reach the prompt.
+3. **OAuth code prompt during `claude login` (the hard case)** — the "paste code here if prompted" prompt during Claude Code login does not accept paste from PowerShell/CMD on Windows.
+
+   **Root cause analysis** (so future Claude doesn't waste time re-investigating):
+   - Claude Code is built on Ink (React for terminals). Ink relies on **bracketed paste mode**: the terminal wraps pasted content in `\e[200~ ... \e[201~` so the app can detect a paste event vs. fast typing.
+   - On a host shell (macOS Terminal, native Linux), the chain is `Terminal → claude`. Bracketed paste round-trips correctly.
+   - Inside our container launched from PowerShell, the chain is `Windows Terminal → docker.exe (ConPTY) → Docker Desktop Linux VM → container PTY → claude`. The Windows ConPTY ↔ Linux PTY bridge **does not preserve bracketed paste escape sequences**. Claude enables bracketed paste mode (sends `\e[?2004h`), but Windows Terminal never sees the enable, so it never wraps the paste, so Claude only sees rapid keystrokes — and the OAuth prompt's input handler treats that as raw typing that gets eaten or fragmented.
+   - Changing the container's base OS (Debian → Ubuntu/Alpine) does **not** help. The bottleneck is the Windows-side TTY chain, not the container.
+
+   **Workarounds, in order of effectiveness:**
+   1. **Run from WSL2 instead of PowerShell.** This is the only fix that addresses the root cause. From an Ubuntu/Debian WSL2 shell, run `./run.sh claude-login`. The TTY chain becomes `Windows Terminal → WSL2 bash → docker (Linux client) → container`, all Linux PTYs end-to-end, bracketed paste survives, paste works.
+   2. **Type the OAuth code manually.** Codes are short (≤30 chars), takes about 30 seconds. Reliable everywhere.
+   3. **Try `Shift+Insert` or middle-mouse-click** in Windows Terminal. A few users report these work where `Ctrl+V` does not, presumably because they take a different code path.
+   4. **Last resort:** drop into `./run.sh start`, then run `claude /login` manually inside that exact session.
+
+   The clipboard bridge (`cb`) **does not help here** — Claude is blocking on stdin, so piping text in via another command cannot reach the prompt.
 
 **Do not** add API-key based auth as a workaround unless the user explicitly asks. The user has stated they want to keep OAuth for subscription billing.
+**Do not** add a `claude-token` / `setup-token` launcher — that prompt has the same paste limitation and the user already declined it.
 
 ### Container can reach `auth.openai.com` but not `chatgpt.com`
 **Symptom:** Login starts but device-auth code-redemption page won't load.
