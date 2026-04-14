@@ -127,8 +127,15 @@ WORKDIR /workspace
 
 RUN curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh -o /tmp/hermes-install.sh \
     && chmod +x /tmp/hermes-install.sh \
-    && CI=1 HERMES_NO_WIZARD=1 bash /tmp/hermes-install.sh || echo "Hermes install completed (wizard skipped)" \
-    && rm -f /tmp/hermes-install.sh
+    # Hermes installer reads prompts from `< /dev/tty` even with CI=1 set,
+    # which fails in a Docker build (no controlling terminal). Strip the
+    # explicit /dev/tty redirection so reads use stdin, then feed 'n' to
+    # every prompt via process substitution (avoids SIGPIPE under pipefail).
+    && sed -i 's|< /dev/tty||g' /tmp/hermes-install.sh \
+    && CI=1 HERMES_NO_WIZARD=1 NONINTERACTIVE=1 DEBIAN_FRONTEND=noninteractive \
+       bash /tmp/hermes-install.sh < <(printf 'n\n%.0s' $(seq 1 200)) \
+    && rm -f /tmp/hermes-install.sh \
+    && test -x /home/hermes/.local/bin/hermes
 
 ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 
