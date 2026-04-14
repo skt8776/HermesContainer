@@ -12,8 +12,21 @@ if [ -x /usr/local/bin/init-firewall.sh ]; then
     echo ""
 fi
 
+# Ensure persistent volume mount points are owned by hermes (uid 1000).
+# Docker named volumes default to root:root on first creation, which would
+# break codex/claude/hermes since they run as the unprivileged user.
+for dir in \
+    /home/hermes/.codex \
+    /home/hermes/.claude \
+    /home/hermes/.hermes \
+    /home/hermes/.ssh \
+    /commandhistory; do
+    if [ -d "$dir" ]; then
+        chown -R hermes:hermes "$dir" 2>/dev/null || true
+    fi
+done
+
 # Drop to hermes user for everything else
-# If command was passed, execute as hermes; else, start bash
 if [ $# -eq 0 ]; then
     exec runuser -u hermes -- bash
 else
