@@ -9,7 +9,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    # Tell Claude Code to keep ALL its state inside this directory.
+    # Without this, Claude splits state between ~/.claude/ (volume) and
+    # ~/.claude.json (home root, not in volume), so credentials persist
+    # but onboarding/login state doesn't, and `claude` interactive
+    # re-prompts for OAuth on every container start.
+    # This is Anthropic's official solution — see their reference
+    # devcontainer at github.com/anthropics/claude-code/.devcontainer
+    CLAUDE_CONFIG_DIR=/home/hermes/.claude
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
