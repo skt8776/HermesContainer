@@ -167,25 +167,80 @@ Open the repo folder in VS Code or Cursor, then:
 
 ## Troubleshooting
 
-**"Container already running" when calling `up`**
-```bash
-./run.sh stop
-./run.sh up
+### `Permission denied (os error 13)` during `codex login` / `claude login` / `hermes setup`
+
+**Symptom:**
+```
+WARNING: proceeding, even though we could not update PATH: Permission denied (os error 13)
+Error loading configuration: Permission denied (os error 13)
 ```
 
-**Firewall is too restrictive (a legitimate domain is blocked)**
-Edit `.devcontainer/init-firewall.sh`, add the domain to the `for domain in` loop, then `./run.sh build` to rebuild.
+**Cause:** Stale Docker volumes left over from a previous build are owned by `root:root`, but the container now runs as the `hermes` user (uid 1000) and cannot write into them.
 
-**Codex login browser isn't opening**
-The CLI uses device-code flow in headless environments. Copy the printed URL to your host browser manually.
+**Fix:** remove the stale volumes (no real auth tokens lost — they could not have been written in the first place):
+```powershell
+docker volume rm hermes-codex-auth hermes-claude-auth hermes-home hermes-ssh hermes-bash-history
+```
+Then re-run `.\run.bat login`. The current `entrypoint.sh` `chown`s the mount points on every container start, so this only happens with volumes created before that fix landed.
 
-**Hermes can't reach the OpenAI proxy**
-Check `./run.sh logs` for openai-oauth output. The proxy needs an active Codex login — re-run `./run.sh login` if tokens expired.
+### `ERR_EMPTY_RESPONSE` after authenticating in the browser
+
+**Symptom:** You opened the OAuth URL, signed in, and the redirect to `http://localhost:1455/auth/callback?code=...` shows "localhost에서 전송한 데이터가 없습니다 / ERR_EMPTY_RESPONSE". The terminal still says "Starting local login server".
+
+**Cause:** Browser-callback OAuth across Docker Desktop / WSL / Windows networking is fragile. Even with port forwarding, packets sometimes get dropped between the host network stack and the container.
+
+**Fix:** Cancel with **Ctrl+C** and re-run. The current `run.sh` / `run.bat` use **device-code** flow for `codex login` (no callback needed — you paste a short code on the browser):
+```powershell
+.\run.bat login
+# Output:
+#   Open: https://auth.openai.com/codex/device
+#   Code: XXXX-YYYY
+```
+
+For `claude login`, if the embedded browser flow fails the same way, use the API-key fallback:
+```powershell
+.\run.bat start
+# inside the container:
+claude
+/login            # then paste an API key from console.anthropic.com
+```
+
+### `codex login` hangs after printing the URL
+
+Same root cause as `ERR_EMPTY_RESPONSE` above. Cancel with **Ctrl+C** and use the current launcher (`./run.sh login` / `.\run.bat login`) which already uses device-auth.
+
+### `docker build` fails with apt GPG `NO_PUBKEY` errors
+
+The base devcontainers image ships with a stale yarn apt source. The Dockerfile already removes `/etc/apt/sources.list.d/yarn.list` before its own `apt-get update` — if you still hit this, you're likely on an old image. Run `docker system prune -a` and rebuild.
+
+### Hermes setup cannot validate `localhost:10531`
+
+The OAuth proxy (`openai-oauth`) is not running yet because `setup` is one-shot. Save the wizard with the placeholder values anyway — the wizard accepts unreachable endpoints. The proxy is auto-started on every `.\run.bat run` and `.\run.bat up`.
+
+### Container "already running" when calling `up`
+
+```powershell
+.\run.bat stop
+.\run.bat up
+```
+
+### A legitimate domain is blocked by the firewall
+
+Edit `.devcontainer/init-firewall.sh`, add the domain to the `for domain in` loop, then:
+```powershell
+.\run.bat build
+```
+
+### Hermes can't reach the OpenAI proxy
+
+Check `.\run.bat logs` for openai-oauth output. The proxy needs an active Codex login — re-run `.\run.bat login` if tokens expired (about every 30 days).
 
 ## License and Credits
 
 - Firewall script adapted from [Anthropic / claude-code](https://github.com/anthropics/claude-code) (MIT)
 - Hermes Agent by [Nous Research](https://github.com/NousResearch/hermes-agent) (MIT)
 - Codex CLI by [OpenAI](https://github.com/openai/codex) (Apache-2.0)
+- Claude Code by [Anthropic](https://github.com/anthropics/claude-code) (proprietary, see Anthropic's terms)
+- `openai-oauth` proxy by [EvanZhouDev](https://github.com/EvanZhouDev/openai-oauth) (MIT)
 
-This repository is the composition/configuration layer; see each upstream for their respective licenses.
+This repository is the composition/configuration layer; see each upstream for their respective licenses and terms of use. Using ChatGPT subscription tokens through `openai-oauth` is a community workaround — review OpenAI's terms before relying on it for anything beyond personal experimentation.
