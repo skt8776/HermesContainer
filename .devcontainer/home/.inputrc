@@ -1,0 +1,22 @@
+# readline configuration for the hermes user
+# Goal: make clipboard paste from the host terminal "just work"
+
+# Enable bracketed paste mode so multi-line pastes don't fire each line
+# as a separate command (the terminal wraps the paste in escape sequences
+# that bash recognizes).
+set enable-bracketed-paste on
+
+# Inherit common readline behaviors that the system /etc/inputrc may set.
+$include /etc/inputrc
+
+# Disable bash's `quoted-insert` binding on Ctrl+V.
+# By default Ctrl+V means "take the next character literally", which
+# silently swallows pasted text from terminals that translate Ctrl+V
+# into the actual paste action (Windows Terminal does this).
+# Unbinding here lets the terminal's paste-on-Ctrl+V deliver clipboard
+# content directly to the prompt.
+"\C-v": ""
+
+# Shift-Insert is the most universal paste shortcut across terminals;
+# leave it bound to nothing so the terminal handles it.
+"\e[2;2~": ""

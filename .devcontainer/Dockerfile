@@ -75,6 +75,16 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && echo "$USERNAME ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
+# ─── Dotfiles for the hermes user (paste-friendly bash + clipboard bridge) ─
+# .bashrc / .inputrc enable bracketed paste mode and unbind Ctrl+V's
+# quoted-insert so terminal paste actions reach the prompt.
+# .local/bin/cb is a clipboard bridge for cases where TUIs (like Claude Code)
+# don't accept direct paste — you stage clipboard content via a shared file.
+COPY --chown=hermes:hermes .devcontainer/home/.bashrc       /home/hermes/.bashrc
+COPY --chown=hermes:hermes .devcontainer/home/.inputrc      /home/hermes/.inputrc
+COPY --chown=hermes:hermes .devcontainer/home/.local/bin/cb /home/hermes/.local/bin/cb
+RUN chmod 755 /home/hermes/.local/bin/cb
+
 # Install firewall and entrypoint scripts (owned by root)
 COPY .devcontainer/init-firewall.sh /usr/local/bin/init-firewall.sh
 COPY .devcontainer/entrypoint.sh    /usr/local/bin/entrypoint.sh

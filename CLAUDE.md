@@ -159,6 +159,21 @@ Then start over from `run.bat login`.
 **Cause:** The base image ships with a stale yarn apt source.
 **Fix in code:** The Dockerfile removes `/etc/apt/sources.list.d/yarn.list` before its own `apt-get update`.
 
+### Paste (Ctrl+V / right-click) doesn't work, especially in Claude Code
+**Symptom:** User pastes from Windows clipboard with `Ctrl+V`, right-click, or `Shift+Insert` and nothing happens — or only the first line of a multi-line paste lands.
+**Two layers, two fixes:**
+
+1. **At bash prompt** — bash's default `quoted-insert` binding on `Ctrl+V` swallows pasted text.
+   **Fix in code:** `/home/hermes/.bashrc` and `/home/hermes/.inputrc` are baked into the image. They unbind `Ctrl+V` and enable bracketed-paste mode. After a fresh build, paste should work in Windows Terminal (Ctrl+V, right-click, Shift+Insert).
+   **If a user is on legacy `cmd.exe`:** only right-click works (with QuickEdit). Tell them to switch to Windows Terminal.
+
+2. **Inside Claude Code's TUI** — Claude Code captures the terminal and handles input itself. Direct paste sometimes fails for multi-line content or special characters. The container ships a clipboard bridge for this case:
+   - Host (PowerShell): `Get-Clipboard | Out-File -Encoding utf8 .clipboard`
+   - Container: `cb` (cat clipboard), `cb | claude -p` (one-shot prompt), or reference `@/workspace/.clipboard` from inside the `claude` TUI.
+   - The other direction: `echo "..." | cbset` writes to `/workspace/.clipboard`.
+
+The `.clipboard` file is gitignored.
+
 ### Container can reach `auth.openai.com` but not `chatgpt.com`
 **Symptom:** Login starts but device-auth code-redemption page won't load.
 **Cause:** Allowlist miss. Both domains are needed (auth handles login, chatgpt handles the device-code page, the OAuth proxy talks to chatgpt.com/backend-api).

@@ -1,0 +1,31 @@
+#!/bin/bash
+# Clipboard bridge for the Hermes container.
+#
+# The container has no access to the host's clipboard. This script reads
+# from a shared file at /workspace/.clipboard so you can stage Windows
+# clipboard content for use inside the container.
+#
+# Usage on the host (PowerShell):
+#   Get-Clipboard | Out-File -Encoding utf8 .clipboard
+#
+# Usage in the container:
+#   cb              # print clipboard contents
+#   cb | claude -p  # pipe clipboard into Claude Code as a one-shot prompt
+#   cb > file.txt   # save clipboard to a file
+#
+# Tip: alias `cbset` is provided in .bashrc to capture stdin into the file
+# so you can stage from the container side too.
+
+set -euo pipefail
+
+CLIP_FILE="${CLIP_FILE:-/workspace/.clipboard}"
+
+if [ ! -f "$CLIP_FILE" ]; then
+    echo "[cb] No clipboard file at $CLIP_FILE" >&2
+    echo "[cb] On Windows host: Get-Clipboard | Out-File -Encoding utf8 .clipboard" >&2
+    echo "[cb] On macOS host:   pbpaste > .clipboard" >&2
+    echo "[cb] On Linux host:   xclip -selection clipboard -o > .clipboard" >&2
+    exit 1
+fi
+
+cat "$CLIP_FILE"

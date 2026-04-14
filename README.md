@@ -235,6 +235,38 @@ Edit `.devcontainer/init-firewall.sh`, add the domain to the `for domain in` loo
 
 Check `.\run.bat logs` for openai-oauth output. The proxy needs an active Codex login — re-run `.\run.bat login` if tokens expired (about every 30 days).
 
+### Paste (Ctrl+V / right-click) doesn't work in the container
+
+There are two layers to this problem:
+
+**At the bash prompt** — `Ctrl+V` is bound to `quoted-insert` in default bash, which silently swallows pasted text. The container's `~/.bashrc` and `~/.inputrc` already unbind it and enable bracketed-paste mode, so:
+- **Windows Terminal**: `Ctrl+V`, right-click, and `Shift+Insert` should all work.
+- **Legacy `cmd.exe` window**: only right-click works (after enabling QuickEdit). Switch to Windows Terminal for a sane experience.
+
+**In Claude Code's TUI** — Claude Code captures the terminal and handles input itself. Direct paste sometimes fails for multi-line content or special characters. Use the **clipboard bridge** as a workaround:
+
+1. On the Windows host, save your clipboard to a shared file:
+   ```powershell
+   Get-Clipboard | Out-File -Encoding utf8 .clipboard
+   ```
+2. Inside the container, read or pipe it:
+   ```bash
+   cb                       # print clipboard
+   cb | claude -p           # one-shot prompt to Claude Code
+   cb > some-file.txt       # save to a file you can @-reference inside claude
+   ```
+3. Inside Claude Code's TUI, you can also reference the file directly:
+   ```
+   @/workspace/.clipboard
+   ```
+
+The `cb` helper lives at `~/.local/bin/cb` and reads from `/workspace/.clipboard`. The file is gitignored.
+
+To stage from inside the container the other way:
+```bash
+echo "your text" | cbset    # writes to /workspace/.clipboard
+```
+
 ## License and Credits
 
 - Firewall script adapted from [Anthropic / claude-code](https://github.com/anthropics/claude-code) (MIT)

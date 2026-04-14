@@ -11,6 +11,9 @@
 # ─── Active project marker ────────────────────────────────────────────────
 .current-project
 
+# ─── Clipboard bridge file (host ↔ container) ─────────────────────────────
+.clipboard
+
 # ─── Python ───────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
