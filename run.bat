@@ -95,11 +95,13 @@ echo Active project: %PROJECT_NAME%
 goto :eof
 
 :login
-docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% codex login
+REM Codex local OAuth callback server uses port 1455 - forward to host
+docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% -p 127.0.0.1:1455:1455 %IMAGE_NAME% codex login
 goto :eof
 
 :claude_login
-docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% claude login
+REM Claude Code's OAuth callback typically uses port 54545
+docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% -p 127.0.0.1:54545:54545 %IMAGE_NAME% claude login
 goto :eof
 
 :install_claude_skill
