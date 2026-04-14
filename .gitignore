@@ -1,0 +1,37 @@
+# ─── Secrets and local state ──────────────────────────────────────────────
+.env
+.env.local
+*.pem
+*.key
+
+# ─── Project folders (user's work, excluded from this infra repo) ─────────
+# Use `./run.sh init <name>` to create new project folders — they auto-append here.
+/alcohol-service/
+
+# ─── Active project marker ────────────────────────────────────────────────
+.current-project
+
+# ─── Python ───────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# ─── Node ─────────────────────────────────────────────────────────────────
+node_modules/
+
+# ─── OS and editor ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ─── Docker build artifacts ───────────────────────────────────────────────
+*.egg-info/
+dist/
+build/

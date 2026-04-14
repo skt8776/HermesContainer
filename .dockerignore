@@ -1,0 +1,7 @@
+alcohol-service/
+.git/
+.env
+__pycache__/
+*.pyc
+.venv/
+node_modules/

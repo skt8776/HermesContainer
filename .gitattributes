@@ -1,0 +1,16 @@
+# Preserve LF line endings for shell scripts and Dockerfiles
+# (CRLF would break bash execution in container)
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+entrypoint* text eol=lf
+
+# Windows batch files use CRLF
+*.bat       text eol=crlf
+
+# Normalize text files but let git auto-detect
+*.md        text
+*.json      text
+*.yaml      text
+*.yml       text
+.gitignore  text
+.env*       text

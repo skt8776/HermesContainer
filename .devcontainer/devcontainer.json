@@ -1,0 +1,71 @@
+{
+  "name": "Hermes Agent (Hardened)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+
+  "remoteUser": "hermes",
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
+
+  "mounts": [
+    "source=hermes-codex-auth,target=/home/hermes/.codex,type=volume",
+    "source=hermes-home,target=/home/hermes/.hermes,type=volume",
+    "source=hermes-ssh,target=/home/hermes/.ssh,type=volume",
+    "source=hermes-bash-history,target=/commandhistory,type=volume"
+  ],
+
+  "runArgs": [
+    "--cap-drop=ALL",
+    "--cap-add=NET_ADMIN",
+    "--cap-add=NET_RAW",
+    "--cap-add=CHOWN",
+    "--cap-add=SETUID",
+    "--cap-add=SETGID",
+    "--cap-add=DAC_OVERRIDE",
+    "--security-opt=no-new-privileges",
+    "--pids-limit=1024",
+    "--memory=6g",
+    "--memory-swap=6g",
+    "--cpus=3"
+  ],
+
+  "forwardPorts": [10531, 8090],
+  "portsAttributes": {
+    "10531": {
+      "label": "OpenAI OAuth Proxy (localhost only)",
+      "onAutoForward": "silent"
+    },
+    "8090": {
+      "label": "Agent UI",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "containerEnv": {
+    "DEPLOY_HOST": "general-01.kimys.net",
+    "SHELL": "/bin/bash"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/bin/python3.11",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "overrideCommand": false,
+  "postAttachCommand": {
+    "welcome": "echo -e '\\n\\033[1;36m=== Hermes Agent Hardened Dev Container ===\\033[0m\\n\\n  Network: default-deny + allowlist (firewall active)\\n  User:    hermes (non-root)\\n  Caps:    minimal (NET_ADMIN for firewall only)\\n\\n\\033[1;33mQuick Start:\\033[0m\\n  1. codex login           # ChatGPT Pro OAuth\\n  2. openai-oauth &         # Start OAuth proxy\\n  3. hermes setup           # Configure (use http://localhost:10531/v1)\\n  4. hermes                 # Run agent\\n'"
+  }
+}
