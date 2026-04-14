@@ -167,6 +167,14 @@ Open the repo folder in VS Code or Cursor, then:
 
 ## Troubleshooting
 
+### `claude` keeps prompting to re-login even after a successful `claude login`
+
+**Symptom:** `claude auth status` reports `{"loggedIn": true, ...}` and `claude -p` works, but `claude` interactive shows the welcome screen and OAuth flow on every container start.
+
+**Cause:** Claude Code stores credentials in `~/.claude/.credentials.json` (in the volume) but its main onboarding/config file at `~/.claude.json` (in the home root, NOT in the volume). After a container restart the main file is gone and Claude treats the user as a fresh install.
+
+**Fix in code (already applied):** the Dockerfile sets `CLAUDE_CONFIG_DIR=/home/hermes/.claude`, which tells Claude to keep its main config inside the volume too. Anthropic recommends this for their own devcontainer; see GitHub issue [#1736](https://github.com/anthropics/claude-code/issues/1736). If you somehow hit this anyway, rebuild the image (`./run.sh build`) — the env var is baked in.
+
 ### `Permission denied (os error 13)` during `codex login` / `claude login` / `hermes setup`
 
 **Symptom:**
