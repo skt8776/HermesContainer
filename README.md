@@ -243,7 +243,7 @@ There are two layers to this problem:
 - **Windows Terminal**: `Ctrl+V`, right-click, and `Shift+Insert` should all work.
 - **Legacy `cmd.exe` window**: only right-click works (after enabling QuickEdit). Switch to Windows Terminal for a sane experience.
 
-**In Claude Code's TUI** — Claude Code captures the terminal and handles input itself. Direct paste sometimes fails for multi-line content or special characters. Use the **clipboard bridge** as a workaround:
+**In Claude Code's TUI (general text)** — Claude Code captures the terminal and handles input itself. Direct paste sometimes fails for multi-line content or special characters. Use the **clipboard bridge** as a workaround:
 
 1. On the Windows host, save your clipboard to a shared file:
    ```powershell
@@ -266,6 +266,16 @@ To stage from inside the container the other way:
 ```bash
 echo "your text" | cbset    # writes to /workspace/.clipboard
 ```
+
+**At the `claude login` "paste code here" prompt (worst case)** — this specific prompt does not accept paste reliably from any terminal we've tested, and the clipboard bridge can't help because Claude is blocking on stdin. Try, in order:
+
+1. **Type the OAuth code manually** — codes are ≤30 chars; takes about 30 seconds.
+2. **`Shift+Insert`** or **middle-mouse-click** in Windows Terminal sometimes works where `Ctrl+V` does not.
+3. **Try the long-lived token flow** instead of `login`:
+   ```powershell
+   .\run.bat claude-token       # invokes `claude setup-token`
+   ```
+4. As a last resort, drop into `.\run.bat start` and run `claude /login` directly to test paste shortcuts in that exact session.
 
 ## License and Credits
 

@@ -11,6 +11,7 @@
 #   ./run.sh init <name>           - Create or select a project folder
 #   ./run.sh login                 - Codex OAuth (ChatGPT Pro)
 #   ./run.sh claude-login          - Claude Code OAuth (Claude Pro/Max)
+#   ./run.sh claude-token          - Long-lived token flow (alt to claude-login)
 #   ./run.sh install-claude-skill  - Install Claude Code skill into Hermes
 #   ./run.sh setup                 - Hermes setup wizard
 #   ./run.sh gateway-setup         - Configure Discord/Slack gateway
@@ -112,12 +113,17 @@ EOF
             "$IMAGE_NAME" codex login --device-auth
         ;;
     claude-login)
-        # Claude Code's OAuth flow. If the embedded browser flow doesn't work
-        # in your environment, drop into a shell and run `claude /login` to
-        # paste an API key from console.anthropic.com instead.
+        # Claude Code's OAuth flow.
         docker run --rm -it \
             "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
             "$IMAGE_NAME" claude login
+        ;;
+    claude-token)
+        # Long-lived auth token flow (requires Claude subscription).
+        # Try this if `claude-login` paste prompt is problematic.
+        docker run --rm -it \
+            "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
+            "$IMAGE_NAME" claude setup-token
         ;;
     install-claude-skill)
         docker run --rm \
@@ -210,6 +216,7 @@ Setup:
   build                 Build the Docker image
   login                 Codex OAuth login (ChatGPT Pro)
   claude-login          Claude Code OAuth login (Claude Pro/Max)
+  claude-token          Long-lived token flow (alternative to claude-login)
   install-claude-skill  Copy Claude Code skill into Hermes skills dir
   setup                 Hermes setup wizard
   gateway-setup         Configure Discord/Slack gateway

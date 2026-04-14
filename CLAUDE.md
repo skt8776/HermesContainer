@@ -160,19 +160,29 @@ Then start over from `run.bat login`.
 **Fix in code:** The Dockerfile removes `/etc/apt/sources.list.d/yarn.list` before its own `apt-get update`.
 
 ### Paste (Ctrl+V / right-click) doesn't work, especially in Claude Code
-**Symptom:** User pastes from Windows clipboard with `Ctrl+V`, right-click, or `Shift+Insert` and nothing happens — or only the first line of a multi-line paste lands.
-**Two layers, two fixes:**
+**Symptom:** User pastes from Windows clipboard with `Ctrl+V`, right-click, or `Shift+Insert` and nothing happens — or only the first line of a multi-line paste lands. Worst case: the OAuth code prompt during `claude login` won't accept any paste at all.
+
+**Two layers, three workarounds:**
 
 1. **At bash prompt** — bash's default `quoted-insert` binding on `Ctrl+V` swallows pasted text.
-   **Fix in code:** `/home/hermes/.bashrc` and `/home/hermes/.inputrc` are baked into the image. They unbind `Ctrl+V` and enable bracketed-paste mode. After a fresh build, paste should work in Windows Terminal (Ctrl+V, right-click, Shift+Insert).
+   **Fix in code:** `/home/hermes/.bashrc` and `/home/hermes/.inputrc` are baked into the image. They unbind `Ctrl+V` and enable bracketed-paste mode. After a fresh build, paste works in Windows Terminal (Ctrl+V, right-click, Shift+Insert).
    **If a user is on legacy `cmd.exe`:** only right-click works (with QuickEdit). Tell them to switch to Windows Terminal.
 
-2. **Inside Claude Code's TUI** — Claude Code captures the terminal and handles input itself. Direct paste sometimes fails for multi-line content or special characters. The container ships a clipboard bridge for this case:
+2. **Inside Claude Code's TUI (general text)** — Claude Code captures the terminal and handles input itself. Direct paste sometimes fails for multi-line content or special characters. Use the clipboard bridge:
    - Host (PowerShell): `Get-Clipboard | Out-File -Encoding utf8 .clipboard`
    - Container: `cb` (cat clipboard), `cb | claude -p` (one-shot prompt), or reference `@/workspace/.clipboard` from inside the `claude` TUI.
    - The other direction: `echo "..." | cbset` writes to `/workspace/.clipboard`.
+   - The `.clipboard` file is gitignored.
 
-The `.clipboard` file is gitignored.
+3. **OAuth code prompt during `claude login` (the worst case)** — the "paste code here if prompted" prompt does not accept paste reliably from any terminal we've tested. The bracketed-paste mode that helps elsewhere does not bypass this prompt.
+   **Workarounds, in order of preference:**
+   1. **Type the code manually.** OAuth codes are short (≤30 chars). Read from the browser, type into the terminal. ~30 seconds.
+   2. **Try `Shift+Insert` or middle-mouse-click** in Windows Terminal — a few users report these work where `Ctrl+V` does not.
+   3. **Use `./run.sh claude-token`** instead of `./run.sh claude-login`. This invokes `claude setup-token` (long-lived subscription token flow) — same paste prompt, but worth trying if your environment treats it differently.
+   4. **Last resort:** drop into `./run.sh start`, run `claude /login` manually, and try the various paste shortcuts in that exact session.
+   The clipboard bridge (`cb`) **does not help here** — Claude is blocking on stdin, so piping text in via another command can't reach the prompt.
+
+**Do not** add API-key based auth as a workaround unless the user explicitly asks. The user has stated they want to keep OAuth for subscription billing.
 
 ### Container can reach `auth.openai.com` but not `chatgpt.com`
 **Symptom:** Login starts but device-auth code-redemption page won't load.
