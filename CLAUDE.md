@@ -219,7 +219,8 @@ Then start over from `run.bat login`.
 
 ### OAuth & Credentials
 - **OpenAI / ChatGPT Pro:** `codex login --device-auth` → tokens in `hermes-codex-auth` volume → bridged via `openai-oauth` on `localhost:10531` → Hermes calls `http://localhost:10531/v1`.
-- **Anthropic / Claude Pro/Max:** `claude login` (browser) or `claude /login` (interactive paste) → tokens in `hermes-claude-auth` volume → Claude Code CLI reads them automatically.
+- **Anthropic / Claude Pro/Max:** `claude login` → tokens in `hermes-claude-auth` volume.
+  - The Dockerfile sets `CLAUDE_CONFIG_DIR=/home/hermes/.claude` so Claude keeps its main config (`.claude.json`) and credentials in the same volume-mounted directory. Without this env var, Claude splits state between `~/.claude/` (volume) and `~/.claude.json` (home root, ephemeral); the missing main config makes `claude` interactive re-prompt for OAuth on every container restart even though `claude auth status` reports logged-in. Anthropic's reference devcontainer uses the same env var. See [issue #1736](https://github.com/anthropics/claude-code/issues/1736).
 - **Never** commit API keys, OAuth tokens, or `.env` files.
 
 ### Hermes → Claude Code Delegation
