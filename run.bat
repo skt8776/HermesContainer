@@ -38,6 +38,11 @@ REM Port forwarding: localhost only
 set "PORTS=-p 127.0.0.1:10531:10531 -p 127.0.0.1:8090:8090"
 
 set "ENVARGS=-e DEPLOY_HOST=%DEPLOY_HOST%"
+REM Pass through FIREWALL_DEBUG so users can do:
+REM   set FIREWALL_DEBUG=1
+REM   run.bat start
+REM to see verbose firewall setup output.
+if defined FIREWALL_DEBUG set "ENVARGS=%ENVARGS% -e FIREWALL_DEBUG=%FIREWALL_DEBUG%"
 
 REM Command dispatch
 if "%~1"=="" goto :help

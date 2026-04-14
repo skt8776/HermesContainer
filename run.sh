@@ -63,6 +63,10 @@ PORTS=(
 ENV=(
     -e DEPLOY_HOST="${DEPLOY_HOST:-general-01.kimys.net}"
 )
+# Pass through FIREWALL_DEBUG so users can do:
+#   FIREWALL_DEBUG=1 ./run.sh start
+# to see resolving/adding details for each allowlisted domain.
+[ -n "${FIREWALL_DEBUG:-}" ] && ENV+=(-e "FIREWALL_DEBUG=${FIREWALL_DEBUG}")
 
 is_running() {
     docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"
