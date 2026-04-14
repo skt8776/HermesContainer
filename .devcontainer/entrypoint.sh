@@ -26,6 +26,28 @@ for dir in \
     fi
 done
 
+# Re-inject the hermes-agent symlink inside the .hermes volume.
+# Background: the Hermes installer puts the agent code at
+# /home/hermes/.hermes/hermes-agent/. That directory is the mount
+# target of the hermes-home volume, so on first run the volume HIDES
+# the in-image install. We move the install to /opt/hermes-agent in
+# the image (Dockerfile) and recreate the symlink here on every
+# container start.
+#
+# Stale-volume case: an earlier (broken) install may have left a real
+# hermes-agent directory inside the volume. We unconditionally replace
+# it with our symlink so the canonical /opt/hermes-agent is always used.
+# User config / skills / sessions in sibling subdirs are untouched.
+if [ -d /opt/hermes-agent ]; then
+    if [ -e /home/hermes/.hermes/hermes-agent ] && [ ! -L /home/hermes/.hermes/hermes-agent ]; then
+        rm -rf /home/hermes/.hermes/hermes-agent
+    fi
+    if [ ! -L /home/hermes/.hermes/hermes-agent ]; then
+        ln -s /opt/hermes-agent /home/hermes/.hermes/hermes-agent
+        chown -h hermes:hermes /home/hermes/.hermes/hermes-agent
+    fi
+fi
+
 # Auto-restore Claude's main config from backup if missing.
 # With CLAUDE_CONFIG_DIR=/home/hermes/.claude (set in Dockerfile),
 # Claude expects its main config at /home/hermes/.claude/.claude.json

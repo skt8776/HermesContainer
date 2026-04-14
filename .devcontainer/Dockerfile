@@ -139,6 +139,26 @@ RUN curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/
 
 ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 
+USER root
+
+# Move the hermes-agent code OUT of /home/hermes/.hermes/ (which becomes
+# a Docker volume mount at runtime, hiding everything inside) into /opt/
+# (which is part of the image and never volume-mounted). The runtime
+# entrypoint re-injects a symlink so /home/hermes/.hermes/hermes-agent
+# resolves to /opt/hermes-agent inside the volume.
+RUN mv /home/hermes/.hermes/hermes-agent /opt/hermes-agent \
+    && ln -s /opt/hermes-agent /home/hermes/.hermes/hermes-agent \
+    && chown -h hermes:hermes /home/hermes/.hermes/hermes-agent
+
+# Expose hermes (and other user-local binaries) on the standard PATH.
+# runuser resets PATH to a compiled-in default (typically /usr/sbin:/usr/bin)
+# for security, so without these symlinks the entrypoint's
+#   exec runuser -u hermes -- hermes setup
+# fails with "failed to execute hermes: No such file or directory".
+RUN ln -sf /home/hermes/.local/bin/hermes /usr/local/bin/hermes \
+    && ln -sf /home/hermes/.local/bin/cb     /usr/local/bin/cb \
+    && /usr/local/bin/hermes --version
+
 # ─── Entrypoint: starts as root → runs firewall → drops to hermes ─────────
 # This design keeps --security-opt=no-new-privileges compatible with sudo-less setup.
 USER root
