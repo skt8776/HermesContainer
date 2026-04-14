@@ -2,18 +2,20 @@
 REM Hermes Agent Hardened Dev Container Launcher (Windows)
 REM
 REM Usage:
-REM   run.bat build            - Build image
-REM   run.bat init ^<name^>      - Create or select project folder
-REM   run.bat login            - Codex OAuth (one-shot)
-REM   run.bat setup            - Hermes setup wizard
-REM   run.bat gateway-setup    - Configure Discord/Slack gateway
-REM   run.bat up               - Start long-running container (detached)
-REM   run.bat attach           - Open shell in running container
-REM   run.bat logs             - Show gateway and OAuth proxy logs
-REM   run.bat stop             - Stop long-running container
-REM   run.bat run              - Run hermes interactively
-REM   run.bat start            - Interactive shell
-REM   run.bat noshield         - DEBUG: shell without firewall
+REM   run.bat build                  - Build image
+REM   run.bat init ^<name^>            - Create or select project folder
+REM   run.bat login                  - Codex OAuth (ChatGPT Pro)
+REM   run.bat claude-login           - Claude Code OAuth (Claude Pro/Max)
+REM   run.bat install-claude-skill   - Install Claude Code skill into Hermes
+REM   run.bat setup                  - Hermes setup wizard
+REM   run.bat gateway-setup          - Configure Discord/Slack gateway
+REM   run.bat up                     - Start long-running container
+REM   run.bat attach                 - Open shell in running container
+REM   run.bat logs                   - Show gateway and OAuth proxy logs
+REM   run.bat stop                   - Stop long-running container
+REM   run.bat run                    - Run hermes interactively
+REM   run.bat start                  - Interactive shell
+REM   run.bat noshield               - DEBUG: shell without firewall
 
 setlocal enabledelayedexpansion
 
@@ -24,7 +26,7 @@ set "WORKSPACE=%cd%"
 if "%DEPLOY_HOST%"=="" set "DEPLOY_HOST=general-01.kimys.net"
 
 REM Volume mounts: workspace bind + persistent named volumes
-set "VOLUMES=-v %WORKSPACE%:/workspace -v hermes-codex-auth:/home/hermes/.codex -v hermes-home:/home/hermes/.hermes -v hermes-ssh:/home/hermes/.ssh -v hermes-bash-history:/commandhistory"
+set "VOLUMES=-v %WORKSPACE%:/workspace -v hermes-codex-auth:/home/hermes/.codex -v hermes-claude-auth:/home/hermes/.claude -v hermes-home:/home/hermes/.hermes -v hermes-ssh:/home/hermes/.ssh -v hermes-bash-history:/commandhistory"
 
 REM Docker runtime hardening
 set "HARDENING=--cap-drop=ALL --cap-add=NET_ADMIN --cap-add=NET_RAW --cap-add=CHOWN --cap-add=SETUID --cap-add=SETGID --cap-add=DAC_OVERRIDE --security-opt=no-new-privileges --pids-limit=1024 --memory=6g --memory-swap=6g --cpus=3"
@@ -36,10 +38,12 @@ set "ENVARGS=-e DEPLOY_HOST=%DEPLOY_HOST%"
 
 REM Command dispatch
 if "%~1"=="" goto :help
-if /i "%~1"=="build"         goto :build
-if /i "%~1"=="init"          goto :init
-if /i "%~1"=="login"         goto :login
-if /i "%~1"=="setup"         goto :setup
+if /i "%~1"=="build"                goto :build
+if /i "%~1"=="init"                 goto :init
+if /i "%~1"=="login"                goto :login
+if /i "%~1"=="claude-login"         goto :claude_login
+if /i "%~1"=="install-claude-skill" goto :install_claude_skill
+if /i "%~1"=="setup"                goto :setup
 if /i "%~1"=="gateway-setup" goto :gateway_setup
 if /i "%~1"=="up"            goto :up
 if /i "%~1"=="attach"        goto :attach
@@ -92,6 +96,14 @@ goto :eof
 
 :login
 docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% codex login
+goto :eof
+
+:claude_login
+docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% claude login
+goto :eof
+
+:install_claude_skill
+docker run --rm %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% bash -c "mkdir -p ~/.hermes/skills && cp -r /opt/hermes-skills/claude_code ~/.hermes/skills/ && echo Installed Claude Code skill to ~/.hermes/skills/claude_code/"
 goto :eof
 
 :setup
@@ -179,10 +191,12 @@ echo Project:
 echo   init ^<name^>     Create or select a project folder (auto-added to .gitignore)
 echo.
 echo Setup:
-echo   build           Build the Docker image
-echo   login           Codex OAuth login (first time)
-echo   setup           Hermes setup wizard
-echo   gateway-setup   Configure Discord/Slack gateway
+echo   build                 Build the Docker image
+echo   login                 Codex OAuth login (ChatGPT Pro)
+echo   claude-login          Claude Code OAuth login (Claude Pro/Max)
+echo   install-claude-skill  Copy Claude Code skill into Hermes skills dir
+echo   setup                 Hermes setup wizard
+echo   gateway-setup         Configure Discord/Slack gateway
 echo.
 echo Long-running:
 echo   up              Start container in background (OAuth proxy + Gateway)

@@ -54,9 +54,16 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 # ─── OpenAI Codex CLI (ChatGPT Pro OAuth) ─────────────────────────────────
 RUN npm install -g @openai/codex
 
+# ─── Anthropic Claude Code (Claude Pro/Max OAuth) ─────────────────────────
+# Hermes delegates actual code edits to Claude Code via subprocess.
+RUN npm install -g @anthropic-ai/claude-code
+
 # ─── openai-oauth (bridges Codex tokens to OpenAI-compatible endpoint) ────
 # This lets Hermes use ChatGPT Pro subscription via localhost proxy
 RUN npm install -g openai-oauth || echo "openai-oauth install failed, will install at runtime"
+
+# ─── Skill templates (copied to ~/.hermes/skills/ via install-claude-skill) ─
+COPY .devcontainer/skills /opt/hermes-skills
 
 # ─── Create non-root user with restricted sudo (firewall script only) ─────
 # User can only run the firewall init script as root, nothing else

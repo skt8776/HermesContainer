@@ -11,6 +11,7 @@
 
   "mounts": [
     "source=hermes-codex-auth,target=/home/hermes/.codex,type=volume",
+    "source=hermes-claude-auth,target=/home/hermes/.claude,type=volume",
     "source=hermes-home,target=/home/hermes/.hermes,type=volume",
     "source=hermes-ssh,target=/home/hermes/.ssh,type=volume",
     "source=hermes-bash-history,target=/commandhistory,type=volume"

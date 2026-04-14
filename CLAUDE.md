@@ -4,17 +4,19 @@ Guidance for Claude Code when operating inside this repository.
 
 ## What This Repo Is
 
-A hardened Docker dev container that runs **Nous Research's Hermes Agent** and **OpenAI's Codex CLI** with a **default-deny network firewall**. The container serves as a sandboxed harness so AI agents can work on user projects without full host access or unrestricted internet.
+A hardened Docker dev container that runs **Nous Research's Hermes Agent**, **OpenAI's Codex CLI**, and **Anthropic's Claude Code** with a **default-deny network firewall**. Hermes orchestrates; Claude Code executes code-editing tasks on delegation. The container serves as a sandboxed harness so AI agents can work on user projects without full host access or unrestricted internet.
 
 ## Repo Layout
 
 ```
 dev-container/
 ├── .devcontainer/
-│   ├── Dockerfile           # Debian + Python 3.11 + Node 22 + Hermes + Codex
+│   ├── Dockerfile           # Debian + Python 3.11 + Node 22 + Hermes + Codex + Claude Code
 │   ├── init-firewall.sh     # iptables/ipset allowlist (adapted from Anthropic's Claude Code)
 │   ├── entrypoint.sh        # Starts as root → runs firewall → drops to hermes user
-│   └── devcontainer.json    # VS Code/Cursor Dev Container config
+│   ├── devcontainer.json    # VS Code/Cursor Dev Container config
+│   └── skills/
+│       └── claude_code/     # Template for Hermes→Claude Code delegation skill
 ├── run.sh                   # Unix/Git Bash launcher
 ├── run.bat                  # Windows CMD/PowerShell launcher
 ├── README.md                # User-facing docs
@@ -40,10 +42,16 @@ dev-container/
 - Persistent state lives in named Docker volumes (`hermes-codex-auth`, `hermes-home`, `hermes-ssh`, `hermes-bash-history`), never in the repo.
 
 ### OAuth & Credentials
-- OpenAI access uses **Codex CLI OAuth** (`codex login`) tied to a ChatGPT Pro subscription.
-- The OAuth token is stored in the `hermes-codex-auth` volume and bridged to a local OpenAI-compatible proxy via `openai-oauth` on port 10531.
-- Hermes is configured to call `http://localhost:10531/v1` as its OpenAI endpoint.
+- **OpenAI / ChatGPT Pro**: `codex login` → tokens in `hermes-codex-auth` volume → bridged via `openai-oauth` on `localhost:10531` → Hermes calls `http://localhost:10531/v1`.
+- **Anthropic / Claude Pro/Max**: `claude login` → tokens in `hermes-claude-auth` volume → Claude Code CLI reads them automatically.
 - **Never** commit API keys, OAuth tokens, or `.env` files.
+
+### Hermes → Claude Code Delegation
+- Hermes Agent orchestrates workflows (Discord/Slack, multi-step tasks).
+- For code-editing work, Hermes invokes Claude Code via a skill at `~/.hermes/skills/claude_code/skill.py`.
+- The skill shells out to `claude -p "<task>" --cwd <path>` in the container.
+- Claude Code uses its own permission model (`acceptEdits`, `plan`, etc.) and its own tool set (Read, Edit, Bash, Grep, Glob).
+- The skill template lives at `/opt/hermes-skills/claude_code/` in the image and is copied to the user's Hermes home via `./run.sh install-claude-skill`.
 
 ## Rules for Claude Code
 
@@ -70,6 +78,8 @@ dev-container/
 | Change resource limits | `runArgs` in `devcontainer.json` and `HARDENING` in both launchers |
 | Change deployment target | `DEPLOY_HOST` env var (defaults to `general-01.kimys.net`) |
 | Update Hermes/Codex version | Rebuild the image; latest is pulled by the install script |
+| Change Claude Code skill API | `.devcontainer/skills/claude_code/skill.py` (then re-run `install-claude-skill`) |
+| Add a new Hermes skill | Create `.devcontainer/skills/<name>/`, add a matching launcher command |
 
 ## Testing Changes
 

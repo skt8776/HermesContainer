@@ -84,6 +84,12 @@ for domain in \
     "cdn.oaistatic.com" \
     "platform.openai.com" \
     "models.inference.ai.azure.com" \
+    "api.anthropic.com" \
+    "console.anthropic.com" \
+    "claude.ai" \
+    "statsig.anthropic.com" \
+    "statsig.com" \
+    "sentry.io" \
     "registry.npmjs.org" \
     "pypi.org" \
     "files.pythonhosted.org" \

@@ -1,6 +1,6 @@
 # Hermes Agent Hardened Dev Container
 
-A sandboxed Docker container for running [Nous Research's Hermes Agent](https://github.com/NousResearch/hermes-agent) with [OpenAI's Codex CLI](https://github.com/openai/codex) under a strict network firewall — safe enough to let AI agents modify, test, and deploy your projects.
+A sandboxed Docker container for running [Nous Research's Hermes Agent](https://github.com/NousResearch/hermes-agent), [OpenAI's Codex CLI](https://github.com/openai/codex), and [Anthropic's Claude Code](https://github.com/anthropics/claude-code) together under a strict network firewall — safe enough to let AI agents modify, test, and deploy your projects.
 
 ## Why This Exists
 
@@ -24,17 +24,26 @@ Running an autonomous agent on your host machine means trusting it with your ent
     │
     ├── Codex CLI             → ChatGPT Pro OAuth (browser device-code flow)
     ├── openai-oauth proxy    → localhost:10531 (bridges OAuth → OpenAI API shape)
-    └── Hermes Agent          → calls localhost:10531/v1, subscription billing
+    ├── Claude Code CLI       → Claude Pro/Max OAuth (separate browser flow)
+    └── Hermes Agent          → orchestrator
              │
+             ├── LLM calls → localhost:10531/v1 (ChatGPT Pro subscription)
+             ├── Delegation → `claude -p "<task>"` subprocess (Claude Pro/Max)
              └── operates on → /workspace/<your-project>/
 ```
+
+**Role split:** Hermes is the orchestrator (Discord/Slack gateways, workflows,
+long-running tasks). Claude Code is the code-editing executor, called by
+Hermes on demand via the `claude_code` skill. This lets you use both
+subscriptions for what each does best.
 
 The firewall allowlist is adapted from [Anthropic's Claude Code devcontainer](https://github.com/anthropics/claude-code/tree/main/.devcontainer).
 
 ## Prerequisites
 
 - **Docker Desktop** (Windows/macOS) or Docker Engine (Linux)
-- A **ChatGPT Plus or Pro** subscription (for OAuth)
+- A **ChatGPT Plus or Pro** subscription (for Codex OAuth — Hermes orchestration LLM)
+- A **Claude Pro or Max** subscription (for Claude Code OAuth — code-editing executor)
 - Optional: **VS Code** / **Cursor** with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
 
 ## Quick Start
@@ -56,7 +65,7 @@ The firewall allowlist is adapted from [Anthropic's Claude Code devcontainer](ht
 ./run.sh init alcohol-service     # reuses the existing folder
 ```
 
-### 3. One-time: Codex OAuth login
+### 3. One-time: Codex OAuth login (ChatGPT Pro)
 
 ```bash
 ./run.sh login
@@ -64,7 +73,23 @@ The firewall allowlist is adapted from [Anthropic's Claude Code devcontainer](ht
 # The token is stored in a Docker volume and reused across container runs.
 ```
 
-### 4. Configure Hermes (interactive wizard)
+### 4. One-time: Claude Code OAuth login (Claude Pro/Max)
+
+```bash
+./run.sh claude-login
+# Opens a browser flow similar to codex login.
+# Tokens are stored in a separate `hermes-claude-auth` volume.
+```
+
+### 5. Install the Claude Code delegation skill
+
+```bash
+./run.sh install-claude-skill
+# Copies the skill template from /opt/hermes-skills/claude_code/
+# into your persistent Hermes home at ~/.hermes/skills/claude_code/.
+```
+
+### 6. Configure Hermes (interactive wizard)
 
 ```bash
 ./run.sh setup
@@ -73,14 +98,14 @@ The firewall allowlist is adapted from [Anthropic's Claude Code devcontainer](ht
 # API key:   any non-empty string (the proxy replaces it with your OAuth token)
 ```
 
-### 5. (Optional) Configure Discord/Slack gateway
+### 7. (Optional) Configure Discord/Slack gateway
 
 ```bash
 ./run.sh gateway-setup
 # Provide bot tokens from Discord Developer Portal / Slack App settings.
 ```
 
-### 6. Run the agent
+### 8. Run the agent
 
 ```bash
 # One-shot interactive session:
@@ -99,7 +124,9 @@ The firewall allowlist is adapted from [Anthropic's Claude Code devcontainer](ht
 |---------|-------------|
 | `build` | Build the Docker image |
 | `init <name>` | Create or select a project folder (auto-gitignored) |
-| `login` | Codex OAuth login (one-time per host) |
+| `login` | Codex OAuth login — ChatGPT Pro (one-time per host) |
+| `claude-login` | Claude Code OAuth login — Claude Pro/Max (one-time per host) |
+| `install-claude-skill` | Copy the Claude Code delegation skill into Hermes |
 | `setup` | Hermes setup wizard |
 | `gateway-setup` | Configure Discord / Slack / WhatsApp gateway |
 | `up` | Start long-running container (OAuth proxy + gateway) |

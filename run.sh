@@ -7,18 +7,20 @@
 #   - Attach: exec into a running container
 #
 # Usage:
-#   ./run.sh build            - Build image
-#   ./run.sh init <name>      - Create or select a project folder
-#   ./run.sh login            - Codex OAuth (one-shot)
-#   ./run.sh setup            - Hermes setup wizard (one-shot)
-#   ./run.sh gateway-setup    - Configure Discord/Slack gateway (one-shot)
-#   ./run.sh up               - Start long-running container (detached)
-#   ./run.sh attach           - Open shell in running container
-#   ./run.sh logs             - Tail logs from running container
-#   ./run.sh stop             - Stop long-running container
-#   ./run.sh run              - One-shot hermes run (interactive)
-#   ./run.sh start            - One-shot interactive shell
-#   ./run.sh noshield         - DEBUG: shell without firewall
+#   ./run.sh build                 - Build image
+#   ./run.sh init <name>           - Create or select a project folder
+#   ./run.sh login                 - Codex OAuth (ChatGPT Pro)
+#   ./run.sh claude-login          - Claude Code OAuth (Claude Pro/Max)
+#   ./run.sh install-claude-skill  - Install Claude Code skill into Hermes
+#   ./run.sh setup                 - Hermes setup wizard
+#   ./run.sh gateway-setup         - Configure Discord/Slack gateway
+#   ./run.sh up                    - Start long-running container (detached)
+#   ./run.sh attach                - Open shell in running container
+#   ./run.sh logs                  - Tail logs from running container
+#   ./run.sh stop                  - Stop long-running container
+#   ./run.sh run                   - One-shot hermes run (interactive)
+#   ./run.sh start                 - One-shot interactive shell
+#   ./run.sh noshield              - Emergency shell without firewall (DEBUG)
 
 set -euo pipefail
 
@@ -29,6 +31,7 @@ WORKSPACE="$(pwd)"
 VOLUMES=(
     -v "${WORKSPACE}:/workspace"
     -v "hermes-codex-auth:/home/hermes/.codex"
+    -v "hermes-claude-auth:/home/hermes/.claude"
     -v "hermes-home:/home/hermes/.hermes"
     -v "hermes-ssh:/home/hermes/.ssh"
     -v "hermes-bash-history:/commandhistory"
@@ -104,6 +107,17 @@ EOF
         docker run --rm -it \
             "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
             "$IMAGE_NAME" codex login
+        ;;
+    claude-login)
+        docker run --rm -it \
+            "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
+            "$IMAGE_NAME" claude login
+        ;;
+    install-claude-skill)
+        docker run --rm \
+            "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
+            "$IMAGE_NAME" \
+            bash -c 'mkdir -p ~/.hermes/skills && cp -r /opt/hermes-skills/claude_code ~/.hermes/skills/ && echo "Installed Claude Code skill to ~/.hermes/skills/claude_code/"'
         ;;
     setup)
         docker run --rm -it \
@@ -187,10 +201,12 @@ Project:
   init <name>     Create or select a project folder (auto-added to .gitignore)
 
 Setup:
-  build           Build the Docker image
-  login           Codex OAuth login (first time)
-  setup           Hermes setup wizard
-  gateway-setup   Configure Discord/Slack gateway
+  build                 Build the Docker image
+  login                 Codex OAuth login (ChatGPT Pro)
+  claude-login          Claude Code OAuth login (Claude Pro/Max)
+  install-claude-skill  Copy Claude Code skill into Hermes skills dir
+  setup                 Hermes setup wizard
+  gateway-setup         Configure Discord/Slack gateway
 
 Long-running:
   up              Start container in background (OAuth proxy + Gateway)
