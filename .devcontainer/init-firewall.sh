@@ -48,6 +48,15 @@ iptables -A INPUT  -p tcp --sport 22 -m state --state ESTABLISHED -j ACCEPT
 iptables -A INPUT  -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 
+# Inbound on Docker port-forwards (OAuth callbacks, OAuth proxy, agent UI).
+# These are needed when the host browser hits localhost:<port> and Docker
+# forwards the connection into the container — without these the INPUT
+# default-DROP would silently kill the callback (ERR_EMPTY_RESPONSE).
+iptables -A INPUT -p tcp --dport 1455  -j ACCEPT  # codex login callback
+iptables -A INPUT -p tcp --dport 54545 -j ACCEPT  # claude login callback
+iptables -A INPUT -p tcp --dport 10531 -j ACCEPT  # openai-oauth proxy
+iptables -A INPUT -p tcp --dport 8090  -j ACCEPT  # agent UI
+
 # ─── 4. Create ipset for CIDR/IP allowlist ────────────────────────────────
 ipset create allowed-domains hash:net
 

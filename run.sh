@@ -104,27 +104,20 @@ EOF
         echo "Active project: $PROJECT_NAME"
         ;;
     login)
-        # Codex local OAuth callback server uses port 1455 → forward to host
-        # so the browser flow can complete.
+        # Use device-code flow: Codex prints a short code + URL; user opens
+        # the URL on the host browser and pastes the code. No port forwarding
+        # required, more robust across Docker/WSL/network setups.
         docker run --rm -it \
             "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
-            -p 127.0.0.1:1455:1455 \
-            "$IMAGE_NAME" codex login
+            "$IMAGE_NAME" codex login --device-auth
         ;;
     claude-login)
-        # Claude Code's OAuth callback typically uses a port in the 54000+ range.
-        # We forward 54545 by default; if Claude picks a different port, fall
-        # back to: ./run.sh claude-login-headless
+        # Claude Code's OAuth flow. If the embedded browser flow doesn't work
+        # in your environment, drop into a shell and run `claude /login` to
+        # paste an API key from console.anthropic.com instead.
         docker run --rm -it \
             "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
-            -p 127.0.0.1:54545:54545 \
             "$IMAGE_NAME" claude login
-        ;;
-    claude-login-headless)
-        # Headless / fallback: Claude Code's API key flow (no browser)
-        docker run --rm -it \
-            "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
-            "$IMAGE_NAME" bash -c "echo 'For headless login, run inside the container:'; echo '  claude /login'; echo 'and follow the prompt to paste an API key from console.anthropic.com'; bash"
         ;;
     install-claude-skill)
         docker run --rm \

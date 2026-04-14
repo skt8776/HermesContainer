@@ -95,13 +95,13 @@ echo Active project: %PROJECT_NAME%
 goto :eof
 
 :login
-REM Codex local OAuth callback server uses port 1455 - forward to host
-docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% -p 127.0.0.1:1455:1455 %IMAGE_NAME% codex login
+REM Use device-auth: Codex prints a code + URL; user pastes code on host browser.
+REM Avoids port-forwarding complexity across Docker/WSL/Windows networking.
+docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% codex login --device-auth
 goto :eof
 
 :claude_login
-REM Claude Code's OAuth callback typically uses port 54545
-docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% -p 127.0.0.1:54545:54545 %IMAGE_NAME% claude login
+docker run --rm -it %HARDENING% %VOLUMES% %ENVARGS% %IMAGE_NAME% claude login
 goto :eof
 
 :install_claude_skill
