@@ -72,16 +72,17 @@ First build pulls Debian, Node 22, Python 3.11, installs Hermes + Codex + Claude
 ```powershell
 .\run.bat claude-login
 ```
-- This still uses the embedded browser flow.
-- If it fails (e.g., `ERR_EMPTY_RESPONSE` or stuck on "waiting for callback"), fall back to the API-key path:
-  ```powershell
-  .\run.bat start
-  # then inside the container:
-  claude
-  /login
-  # → choose "Anthropic Console" or paste an API key from console.anthropic.com
-  ```
-- Tokens persist in the `hermes-claude-auth` Docker volume.
+- Browser-based OAuth flow. After authorizing in the browser, the CLI asks "paste code here if prompted".
+- The paste prompt does not accept Ctrl+V from PowerShell (see "Failure Modes Encountered" below). **Type the short code by hand** — fastest path.
+- Tokens persist in the `hermes-claude-auth` Docker volume at `/home/hermes/.claude/.credentials.json`.
+
+**Sanity check** — `claude login` *always* re-prompts even when already authenticated, which makes it look like login isn't persisting. To verify auth without re-prompting:
+```powershell
+.\run.bat claude-status
+# Expected output (when logged in):
+#   { "loggedIn": true, "subscriptionType": "max", ... }
+```
+A user reporting "I logged in but next time it asks me to log in again" is almost certainly running `claude-login` repeatedly. Tell them to use `claude-status` instead, or just run `claude` (which uses cached creds without prompting).
 
 ### Step 5 — Install the Claude Code delegation skill
 ```powershell

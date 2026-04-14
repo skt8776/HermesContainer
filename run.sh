@@ -10,7 +10,8 @@
 #   ./run.sh build                 - Build image
 #   ./run.sh init <name>           - Create or select a project folder
 #   ./run.sh login                 - Codex OAuth (ChatGPT Pro)
-#   ./run.sh claude-login          - Claude Code OAuth (Claude Pro/Max)
+#   ./run.sh claude-login          - Claude Code OAuth (always re-prompts)
+#   ./run.sh claude-status         - Check Claude Code auth (no re-prompt)
 #   ./run.sh install-claude-skill  - Install Claude Code skill into Hermes
 #   ./run.sh setup                 - Hermes setup wizard
 #   ./run.sh gateway-setup         - Configure Discord/Slack gateway
@@ -112,10 +113,19 @@ EOF
             "$IMAGE_NAME" codex login --device-auth
         ;;
     claude-login)
-        # Claude Code's OAuth flow.
+        # Claude Code's OAuth flow. Note: this re-prompts even if you're
+        # already logged in. Use `claude-status` to check auth without
+        # re-prompting.
         docker run --rm -it \
             "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
             "$IMAGE_NAME" claude login
+        ;;
+    claude-status)
+        # Check whether Claude Code already has valid credentials in the
+        # hermes-claude-auth volume. Does not re-prompt or re-authenticate.
+        docker run --rm \
+            "${HARDENING[@]}" "${VOLUMES[@]}" "${ENV[@]}" \
+            "$IMAGE_NAME" claude auth status
         ;;
     install-claude-skill)
         docker run --rm \
@@ -207,7 +217,8 @@ Project:
 Setup:
   build                 Build the Docker image
   login                 Codex OAuth login (ChatGPT Pro)
-  claude-login          Claude Code OAuth login (Claude Pro/Max)
+  claude-login          Claude Code OAuth login (always re-prompts)
+  claude-status         Check Claude Code auth status (no re-prompt)
   install-claude-skill  Copy Claude Code skill into Hermes skills dir
   setup                 Hermes setup wizard
   gateway-setup         Configure Discord/Slack gateway
