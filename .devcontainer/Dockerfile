@@ -81,16 +81,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 # ─── uv (fast Python package manager, used by Hermes) ─────────────────────
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# ─── OpenAI Codex CLI (ChatGPT Pro OAuth) ─────────────────────────────────
-RUN npm install -g @openai/codex
-
-# ─── Anthropic Claude Code (Claude Pro/Max OAuth) ─────────────────────────
-# Hermes delegates actual code edits to Claude Code via subprocess.
-RUN npm install -g @anthropic-ai/claude-code
-
-# ─── openai-oauth (bridges Codex tokens to OpenAI-compatible endpoint) ────
-# This lets Hermes use ChatGPT Pro subscription via localhost proxy
-RUN npm install -g openai-oauth || echo "openai-oauth install failed, will install at runtime"
+# (Global npm packages — codex, claude-code, openai-oauth — are installed
+# as the hermes user further below, so the user can later run
+# `npm install -g <pkg>` to upgrade without hitting EACCES on
+# /usr/lib/node_modules.)
 
 # ─── Skill templates (copied to ~/.hermes/skills/ via install-claude-skill) ─
 COPY .devcontainer/skills /opt/hermes-skills
@@ -104,6 +98,35 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m -s /bin/bash $USERNAME \
     && echo "$USERNAME ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Put hermes's user-local bin on PATH for ALL subsequent layers and at
+# runtime. This is the npm global prefix (configured below) plus the spot
+# where pip --user / Hermes installer drop binaries. Set BEFORE the npm
+# install steps so the hermes RUN sees it.
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
+
+# ─── Global npm packages (installed as hermes, not root) ──────────────────
+# Why as hermes: codex's auto-updater (and any user-initiated
+# `npm install -g <pkg>`) would otherwise hit EACCES on /usr/lib/node_modules,
+# which is owned by root. Using a hermes-writable prefix at ~/.local makes
+# upgrades work with normal user permissions. PATH is set above, so the
+# resulting bins (codex, claude, openai-oauth) are found at runtime.
+USER $USERNAME
+RUN mkdir -p /home/hermes/.local/lib /home/hermes/.local/bin \
+    && npm config set prefix /home/hermes/.local
+
+# OpenAI Codex CLI (ChatGPT Pro OAuth)
+RUN npm install -g @openai/codex
+
+# Anthropic Claude Code (Claude Pro/Max OAuth) — Hermes delegates
+# actual code edits to Claude Code via subprocess.
+RUN npm install -g @anthropic-ai/claude-code
+
+# openai-oauth (bridges Codex tokens to OpenAI-compatible endpoint) —
+# lets Hermes use ChatGPT Pro subscription via localhost proxy.
+RUN npm install -g openai-oauth || echo "openai-oauth install failed, will install at runtime"
+
+USER root
 
 # ─── Dotfiles for the hermes user (paste-friendly bash + clipboard bridge) ─
 # .bashrc / .inputrc enable bracketed paste mode and unbind Ctrl+V's
@@ -137,8 +160,6 @@ RUN curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/
     && rm -f /tmp/hermes-install.sh \
     && test -x /home/hermes/.local/bin/hermes
 
-ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
-
 USER root
 
 # Move the hermes-agent code OUT of /home/hermes/.hermes/ (which becomes
@@ -155,9 +176,14 @@ RUN mv /home/hermes/.hermes/hermes-agent /opt/hermes-agent \
 # for security, so without these symlinks the entrypoint's
 #   exec runuser -u hermes -- hermes setup
 # fails with "failed to execute hermes: No such file or directory".
-RUN ln -sf /home/hermes/.local/bin/hermes /usr/local/bin/hermes \
-    && ln -sf /home/hermes/.local/bin/cb     /usr/local/bin/cb \
-    && /usr/local/bin/hermes --version
+RUN ln -sf /home/hermes/.local/bin/hermes       /usr/local/bin/hermes \
+    && ln -sf /home/hermes/.local/bin/cb           /usr/local/bin/cb \
+    && ln -sf /home/hermes/.local/bin/codex        /usr/local/bin/codex \
+    && ln -sf /home/hermes/.local/bin/claude       /usr/local/bin/claude \
+    && ln -sf /home/hermes/.local/bin/openai-oauth /usr/local/bin/openai-oauth \
+    && /usr/local/bin/hermes --version \
+    && /usr/local/bin/codex --version \
+    && /usr/local/bin/claude --version
 
 # ─── Entrypoint: starts as root → runs firewall → drops to hermes ─────────
 # This design keeps --security-opt=no-new-privileges compatible with sudo-less setup.

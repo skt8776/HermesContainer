@@ -123,6 +123,29 @@ Provides `hermes gateway` interactively. Bot tokens come from Discord Developer 
 
 These are real issues we hit while bringing the container up; the fixes are committed but the symptoms still surface in fresh environments. When a user reports any of these, jump straight to the resolution.
 
+### `EACCES` on `npm install -g <pkg>` (e.g., codex auto-updater)
+**Symptom:**
+```
+Updating Codex via `npm install -g @openai/codex`...
+npm error code EACCES
+npm error syscall rename
+npm error path /usr/lib/node_modules/@openai/codex
+npm error Error: EACCES: permission denied, rename '/usr/lib/node_modules/@openai/codex' -> '...'
+```
+**Cause:** Originally the Dockerfile installed `@openai/codex`, `@anthropic-ai/claude-code`, and `openai-oauth` as **root** via `RUN npm install -g ...`. That landed them in `/usr/lib/node_modules/` with root ownership. The `hermes` user (uid 1000) then could not run `npm install -g <pkg>` to upgrade — codex's auto-updater hits this on every prompt, and any user-initiated upgrade hits it too.
+
+This presents as a "network/firewall" issue but is purely filesystem permissions. `registry.npmjs.org` is in the allowlist and reachable; npm just can't write the new files into a root-owned directory.
+
+**Fix in code:** Global npm packages are now installed as the `hermes` user with a user-local prefix (`npm config set prefix /home/hermes/.local`). Bins land at `/home/hermes/.local/bin/{codex,claude,openai-oauth}` (already on `PATH` via the Dockerfile `ENV PATH`). Root-owned symlinks at `/usr/local/bin/{codex,claude,openai-oauth}` point to the user-local bins so `runuser` and any caller relying on the system default `PATH` still resolves them — and because the symlink targets are inside `~/.local/`, an upgrade just rewrites the target file without touching the root-owned symlink.
+
+**If a user still hits this:** they're on an older image. Have them rebuild:
+```powershell
+.\run.bat build
+```
+Their persistent volumes (`hermes-codex-auth`, `hermes-claude-auth`, etc.) are untouched by a rebuild — auth state survives.
+
+**Trade-off:** any `npm install -g <pkg>` upgrade lives in the writable container layer and is lost when the container is removed (`docker rm`). The image's baked-in version comes back. For this dev-container workflow that's fine — periodic `./run.bat build` refreshes everything from the registry. We deliberately did not put `~/.local` on a volume because that would shadow the image's built-in install on first run, breaking new containers.
+
 ### Permission denied (os error 13) on `codex login` or any first-time write
 **Symptom:**
 ```
