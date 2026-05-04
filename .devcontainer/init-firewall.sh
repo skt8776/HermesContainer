@@ -49,6 +49,8 @@ iptables -A INPUT -p tcp --dport 1455  -j ACCEPT
 iptables -A INPUT -p tcp --dport 54545 -j ACCEPT
 iptables -A INPUT -p tcp --dport 10531 -j ACCEPT
 iptables -A INPUT -p tcp --dport 8090  -j ACCEPT
+iptables -A INPUT -p tcp --dport 12080 -j ACCEPT
+iptables -A INPUT -p tcp --dport 12081 -j ACCEPT
 
 # ─── 4. ipset for CIDR/IP allowlist ───────────────────────────────────────
 ipset create allowed-domains hash:net
@@ -71,21 +73,27 @@ fi
 GROUP_LABELS=(
     "OpenAI/ChatGPT"
     "Anthropic"
+    "LLM APIs"
     "GitHub raw"
     "Registries"
     "VS Code"
     "Discord"
     "Slack"
+    "AI research"
+    "Google Fonts"
     "Deploy"
 )
 GROUP_DOMAINS=(
     "auth.openai.com api.openai.com chatgpt.com cdn.oaistatic.com platform.openai.com models.inference.ai.azure.com"
     "api.anthropic.com console.anthropic.com claude.ai statsig.anthropic.com statsig.com sentry.io"
+    "openrouter.ai generativelanguage.googleapis.com api.cohere.ai"
     "raw.githubusercontent.com objects.githubusercontent.com codeload.github.com ghcr.io"
     "registry.npmjs.org pypi.org files.pythonhosted.org deb.debian.org security.debian.org deb.nodesource.com"
     "marketplace.visualstudio.com vscode.blob.core.windows.net update.code.visualstudio.com"
     "discord.com gateway.discord.gg cdn.discordapp.com media.discordapp.net"
     "slack.com api.slack.com wss-primary.slack.com wss-backup.slack.com hooks.slack.com files.slack.com edgeapi.slack.com"
+    "arxiv.org openreview.net paperswithcode.com huggingface.co lmarena.ai artificialanalysis.ai x.com reddit.com news.ycombinator.com lesswrong.com alignmentforum.org semianalysis.com theinformation.com techcrunch.com ai.google.dev deepmind.google mistral.ai meta.com ai.meta.com cohere.com together.ai replicate.com modal.com metaculus.com manifold.markets zhihu.com weibo.com linkedin.com"
+    "fonts.googleapis.com fonts.gstatic.com"
     "$DEPLOY_HOST"
 )
 

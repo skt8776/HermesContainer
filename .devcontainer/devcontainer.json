@@ -32,7 +32,7 @@
     "--cpus=3"
   ],
 
-  "forwardPorts": [10531, 8090],
+  "forwardPorts": [10531, 8090, 12080, 12081],
   "portsAttributes": {
     "10531": {
       "label": "OpenAI OAuth Proxy (localhost only)",
@@ -41,6 +41,14 @@
     "8090": {
       "label": "Agent UI",
       "onAutoForward": "notify"
+    },
+    "12080": {
+      "label": "App Web UI",
+      "onAutoForward": "notify"
+    },
+    "12081": {
+      "label": "App WebSocket",
+      "onAutoForward": "silent"
     }
   },
 

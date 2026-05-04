@@ -27,6 +27,23 @@
 
 set -euo pipefail
 
+# Refuse to run inside the dev container. This launcher manages the
+# container from the host — invoking it from inside produces confusing
+# docker errors (daemon not reachable, socket missing, etc.). If you are
+# already at a hermes@... prompt, you already have the shell this
+# launcher would give you; exit the container first and run it on the host.
+if [ -f /.dockerenv ]; then
+    cat >&2 <<'EOF'
+Error: you appear to be inside the dev container already.
+       run.sh/run.bat manage the container from the HOST, not from inside.
+       You already have a workspace shell — no need to launch anything.
+       To reattach from another host terminal, use `up` + `attach`:
+         (host)  ./run.sh up
+         (host)  ./run.sh attach
+EOF
+    exit 1
+fi
+
 IMAGE_NAME="hermes-dev"
 CONTAINER_NAME="hermes-agent"
 WORKSPACE="$(pwd)"
@@ -58,6 +75,8 @@ HARDENING=(
 PORTS=(
     -p 127.0.0.1:10531:10531
     -p 127.0.0.1:8090:8090
+    -p 127.0.0.1:12080:12080
+    -p 127.0.0.1:12081:12081
 )
 
 ENV=(
@@ -167,24 +186,54 @@ EOF
             echo "Container '${CONTAINER_NAME}' is already running. Use 'attach' or 'stop'."
             exit 1
         fi
+        # Clear any stale (Created/Exited) container with the same name from
+        # a prior failed run. Without this, `docker run` fails with
+        # "container name already in use" and the user is stuck.
+        docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
         # Long-running container: OAuth proxy + Hermes gateway in background
         # Entrypoint runs firewall, then keeps bash alive waiting for exec
-        docker run -d \
+        if ! docker run -d \
             --name "$CONTAINER_NAME" \
             "${HARDENING[@]}" "${VOLUMES[@]}" "${PORTS[@]}" "${ENV[@]}" \
             "$IMAGE_NAME" \
-            bash -c "(openai-oauth > /tmp/oauth.log 2>&1 &) && (hermes gateway start > /tmp/gateway.log 2>&1 &) && sleep infinity"
+            bash -c "(openai-oauth > /tmp/oauth.log 2>&1 &) && (hermes gateway start > /tmp/gateway.log 2>&1 &) && sleep infinity"; then
+            cat <<EOF
+
+Failed to start '${CONTAINER_NAME}'. Most common cause: port conflict.
+Another container or host process is holding 10531/8090/12080/12081.
+Check with: docker ps
+Then stop the offender or run './run.sh stop' before retrying.
+EOF
+            exit 1
+        fi
         echo "Container '${CONTAINER_NAME}' started in background."
         echo "  Attach: ./run.sh attach"
         echo "  Logs:   ./run.sh logs"
         echo "  Stop:   ./run.sh stop"
         ;;
     attach)
-        if ! is_running; then
-            echo "Container '${CONTAINER_NAME}' is not running. Start it with 'up'."
+        if is_running; then
+            # Drop to the hermes user via runuser so HOME/PATH/env match what
+            # the entrypoint sets up for CMD execution. A plain
+            # `docker exec bash` lands as root (container default USER),
+            # which hides the hermes user's ~/.hermes config and makes
+            # hermes prompt for setup.
+            docker exec -it "$CONTAINER_NAME" runuser -u hermes -- bash
+            exit 0
+        fi
+        # Not running — distinguish "never created" from "failed to start".
+        if docker inspect --type=container "$CONTAINER_NAME" >/dev/null 2>&1; then
+            state=$(docker inspect --type=container -f '{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null || echo unknown)
+            err=$(docker inspect --type=container -f '{{.State.Error}}' "$CONTAINER_NAME" 2>/dev/null || true)
+            echo "Container '${CONTAINER_NAME}' exists but is not running."
+            echo "  State: ${state}"
+            [ -n "$err" ] && echo "  Error: ${err}"
+            echo "Likely a port conflict on 10531/8090/12080/12081 during startup."
+            echo "Run './run.sh stop' to remove it, then './run.sh up' to retry."
             exit 1
         fi
-        docker exec -it "$CONTAINER_NAME" bash
+        echo "Container '${CONTAINER_NAME}' does not exist. Start it with './run.sh up'."
+        exit 1
         ;;
     logs)
         if ! is_running; then
@@ -201,12 +250,14 @@ EOF
         docker logs --tail 50 "$CONTAINER_NAME"
         ;;
     stop)
-        if is_running; then
-            docker stop "$CONTAINER_NAME"
-            docker rm "$CONTAINER_NAME" 2>/dev/null || true
-            echo "Stopped."
+        if ! docker inspect --type=container "$CONTAINER_NAME" >/dev/null 2>&1; then
+            echo "Container '${CONTAINER_NAME}' does not exist."
         else
-            echo "Not running."
+            if is_running; then
+                docker stop "$CONTAINER_NAME" >/dev/null
+            fi
+            docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
+            echo "Removed."
         fi
         ;;
     run)

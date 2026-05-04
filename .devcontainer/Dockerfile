@@ -86,6 +86,25 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 # `npm install -g <pkg>` to upgrade without hitting EACCES on
 # /usr/lib/node_modules.)
 
+# ─── Playwright Chromium runtime dependencies ─────────────────────────────
+# Hermes's installer runs `npx playwright install --with-deps chromium`,
+# which shells out to `sudo apt-get install` for these libs. Our hermes
+# user has sudo scoped only to init-firewall.sh, so --with-deps fails with
+# "sudo: a password is required" and the installer prints
+# "Playwright browser installation failed — browser tools will not work."
+# We preinstall the system libs as root here, then strip --with-deps from
+# the installer invocation below so the sudo path is skipped entirely.
+# Package list matches `npx playwright install-deps --dry-run chromium`.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libasound2 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 libcairo2 \
+    libcups2 libdbus-1-3 libdrm2 libgbm1 libglib2.0-0 libnspr4 libnss3 \
+    libpango-1.0-0 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 \
+    libxfixes3 libxkbcommon0 libxrandr2 xvfb \
+    fonts-noto-color-emoji fonts-unifont libfontconfig1 libfreetype6 \
+    xfonts-scalable fonts-liberation fonts-ipafont-gothic fonts-wqy-zenhei \
+    fonts-tlwg-loma-otf fonts-freefont-ttf \
+    && rm -rf /var/lib/apt/lists/*
+
 # ─── Skill templates (copied to ~/.hermes/skills/ via install-claude-skill) ─
 COPY .devcontainer/skills /opt/hermes-skills
 
@@ -155,6 +174,12 @@ RUN curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/
     # explicit /dev/tty redirection so reads use stdin, then feed 'n' to
     # every prompt via process substitution (avoids SIGPIPE under pipefail).
     && sed -i 's|< /dev/tty||g' /tmp/hermes-install.sh \
+    # Strip `--with-deps` from the Playwright install call. That flag makes
+    # playwright shell out to `sudo apt-get install`, which fails here
+    # because our hermes user's sudo is scoped to init-firewall.sh only.
+    # The system libs are preinstalled as root above, so dropping the flag
+    # lets `npx playwright install chromium` just download browsers as user.
+    && sed -i 's|npx playwright install --with-deps chromium|npx playwright install chromium|g' /tmp/hermes-install.sh \
     && CI=1 HERMES_NO_WIZARD=1 NONINTERACTIVE=1 DEBIAN_FRONTEND=noninteractive \
        bash /tmp/hermes-install.sh < <(printf 'n\n%.0s' $(seq 1 200)) \
     && rm -f /tmp/hermes-install.sh \

@@ -1,3 +1,23 @@
+:<<"BATCH_EOF"
+@echo off
+goto :batch_main
+BATCH_EOF
+# ===== bash branch =====
+# This file was invoked via bash (e.g. from inside the dev container, or
+# from Git Bash / WSL). The lines above form a bash heredoc that swallows
+# the batch dispatch; cmd.exe instead treats line 1 as an unreachable
+# label and follows `goto :batch_main` past this whole bash block.
+if [ -f /.dockerenv ]; then
+    echo "Error: you are inside the dev container already." >&2
+    echo "       run.bat is a Windows HOST launcher; you do not need it here." >&2
+    echo "       You already have a workspace shell - just use it." >&2
+else
+    echo "Error: run.bat is a Windows batch file." >&2
+    echo "       On Unix / Git Bash / WSL, run ./run.sh instead." >&2
+fi
+exit 1
+
+:batch_main
 @echo off
 REM Hermes Agent Hardened Dev Container Launcher (Windows)
 REM
@@ -35,7 +55,7 @@ REM Docker runtime hardening
 set "HARDENING=--cap-drop=ALL --cap-add=NET_ADMIN --cap-add=NET_RAW --cap-add=CHOWN --cap-add=SETUID --cap-add=SETGID --cap-add=DAC_OVERRIDE --security-opt=no-new-privileges --pids-limit=1024 --memory=6g --memory-swap=6g --cpus=3"
 
 REM Port forwarding: localhost only
-set "PORTS=-p 127.0.0.1:10531:10531 -p 127.0.0.1:8090:8090"
+set "PORTS=-p 127.0.0.1:10531:10531 -p 127.0.0.1:8090:8090 -p 127.0.0.1:12080:12080 -p 127.0.0.1:12081:12081"
 
 set "ENVARGS=-e DEPLOY_HOST=%DEPLOY_HOST%"
 REM Pass through FIREWALL_DEBUG so users can do:
@@ -149,23 +169,47 @@ if !RUNNING! equ 1 (
     echo Container '%CONTAINER_NAME%' is already running. Use 'attach' or 'stop'.
     exit /b 1
 )
+REM Clear any stale (Created/Exited) container with the same name from a
+REM prior failed run. Without this, `docker run` fails with
+REM "container name already in use" and the user is stuck.
+docker rm %CONTAINER_NAME% >nul 2>&1
 docker run -d --name %CONTAINER_NAME% %HARDENING% %VOLUMES% %PORTS% %ENVARGS% %IMAGE_NAME% bash -c "(openai-oauth > /tmp/oauth.log 2>&1 &) && (hermes gateway start > /tmp/gateway.log 2>&1 &) && sleep infinity"
-if !errorlevel! equ 0 (
-    echo Container '%CONTAINER_NAME%' started in background.
-    echo   Attach: run.bat attach
-    echo   Logs:   run.bat logs
-    echo   Stop:   run.bat stop
+if !errorlevel! neq 0 (
+    echo.
+    echo Failed to start '%CONTAINER_NAME%'. Most common cause: port conflict.
+    echo Another container or host process is holding 10531/8090/12080/12081.
+    echo Check with: docker ps
+    echo Then stop the offender or run 'run.bat stop' before retrying.
+    exit /b 1
 )
+echo Container '%CONTAINER_NAME%' started in background.
+echo   Attach: run.bat attach
+echo   Logs:   run.bat logs
+echo   Stop:   run.bat stop
 goto :eof
 
 :attach
 call :is_running
-if !RUNNING! equ 0 (
-    echo Container '%CONTAINER_NAME%' is not running. Start it with 'up'.
+if !RUNNING! equ 1 (
+    REM Drop to the hermes user via runuser so HOME/PATH/env match what
+    REM the entrypoint sets up for CMD execution. A plain `docker exec bash`
+    REM lands as root (container default USER), which hides the hermes
+    REM user's ~/.hermes config and makes hermes prompt for setup.
+    docker exec -it %CONTAINER_NAME% runuser -u hermes -- bash
+    goto :eof
+)
+REM Not running — distinguish "never created" from "failed to start".
+docker inspect --type=container %CONTAINER_NAME% >nul 2>&1
+if !errorlevel! equ 0 (
+    echo Container '%CONTAINER_NAME%' exists but is not running.
+    for /f "usebackq tokens=*" %%s in (`docker inspect --type=container -f "{{.State.Status}}" %CONTAINER_NAME% 2^>nul`) do echo   State: %%s
+    for /f "usebackq tokens=*" %%e in (`docker inspect --type=container -f "{{.State.Error}}" %CONTAINER_NAME% 2^>nul`) do if not "%%e"=="" echo   Error: %%e
+    echo Likely a port conflict on 10531/8090/12080/12081 during startup.
+    echo Run 'run.bat stop' to remove it, then 'run.bat up' to retry.
     exit /b 1
 )
-docker exec -it %CONTAINER_NAME% bash
-goto :eof
+echo Container '%CONTAINER_NAME%' does not exist. Start it with 'run.bat up'.
+exit /b 1
 
 :logs
 call :is_running
@@ -184,14 +228,17 @@ docker logs --tail 50 %CONTAINER_NAME%
 goto :eof
 
 :stop
+docker inspect --type=container %CONTAINER_NAME% >nul 2>&1
+if !errorlevel! neq 0 (
+    echo Container '%CONTAINER_NAME%' does not exist.
+    goto :eof
+)
 call :is_running
 if !RUNNING! equ 1 (
-    docker stop %CONTAINER_NAME%
-    docker rm %CONTAINER_NAME% 2>nul
-    echo Stopped.
-) else (
-    echo Not running.
+    docker stop %CONTAINER_NAME% >nul
 )
+docker rm %CONTAINER_NAME% >nul 2>&1
+echo Removed.
 goto :eof
 
 :run
@@ -207,10 +254,13 @@ echo WARNING: No firewall, no hardening (DEBUG ONLY)
 docker run --rm -it --entrypoint /bin/bash %VOLUMES% %ENVARGS% %IMAGE_NAME%
 goto :eof
 
-REM Helper: set RUNNING=1 if container is up, else 0
+REM Helper: set RUNNING=1 if container is up, else 0.
+REM Uses `docker ps --filter name=^CONTAINER$` with anchors for exact match.
+REM We avoid `findstr /x` because Docker CLI on Windows emits LF-only line
+REM endings, and `findstr /x` requires CRLF — it silently fails to match.
 :is_running
 set RUNNING=0
-for /f "tokens=*" %%i in ('docker ps --format "{{.Names}}" 2^>nul ^| findstr /x "%CONTAINER_NAME%"') do set RUNNING=1
+for /f "tokens=*" %%i in ('docker ps -q --filter "name=^%CONTAINER_NAME%$" 2^>nul') do set RUNNING=1
 goto :eof
 
 :help
